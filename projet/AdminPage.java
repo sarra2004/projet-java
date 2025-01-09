@@ -1,15 +1,14 @@
 package projet;
 
 import java.awt.*;
-// import javax.security.auth.login.LoginContext;
 import javax.swing.*;
 import java.awt.event.*;
 
 public class AdminPage extends JFrame implements ActionListener{
     
     // creation des label
-    JLabel login = new JLabel("Login");
-    JLabel pwd = new JLabel("Password");
+    JLabel login = new JLabel("Username:");
+    JLabel pwd = new JLabel("Password:");
 
     // creation du text field et pwd field
     JTextField t1 = new JTextField(20);
@@ -22,20 +21,51 @@ public class AdminPage extends JFrame implements ActionListener{
     // constructeur
     public AdminPage(){
         
-        super("Admin");
-        setSize(400, 450 );
+        super("Admin Login");
+        setSize(400, 300 );
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE); // Fermer uniquement cette fenêtre
         setLocationRelativeTo(null); // Centrer la fenêtre
         
-        JPanel p = new JPanel();
-        p.setLayout(new GridLayout(3,2,10,10));
+        // main panel 
+        JPanel p = new JPanel(new BorderLayout());
 
-        p.add(login);
-        p.add(t1);
-        p.add(pwd);
-        p.add(t2);
-        p.add(b1);
-        p.add(b2);
+        // panel lform 
+        JPanel form = new JPanel(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets=new Insets(10, 10, 10, 10);
+        gbc.fill=GridBagConstraints.HORIZONTAL;
+
+        // ajout des labels et textfields de username
+        gbc.gridx=0;
+        gbc.gridy=0;
+        login.setFont(new Font("Arial", Font.BOLD, 14));
+        form.add(login, gbc);
+        gbc.gridx=1;
+        t1.setFont(new Font("Arial", Font.PLAIN, 14));
+        form.add(t1, gbc);
+
+        // ajout des labels et textfields de password 
+        gbc.gridx=0;
+        gbc.gridy=1;
+        pwd.setFont(new Font("Arial", Font.BOLD, 14));
+        form.add(pwd, gbc);
+        gbc.gridx=1;
+        t2.setFont(new Font("Arial", Font.PLAIN, 14));
+        form.add(t2, gbc);
+
+        // panel of the button 
+        JPanel button = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
+        b1.setPreferredSize(new Dimension(100, 35));
+        b1.setFont(new Font("Arial", Font.BOLD, 14));
+        b1.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        button.add(b1);
+        b2.setPreferredSize(new Dimension(100, 35));
+        b2.setFont(new Font("Arial", Font.BOLD, 14));
+        b2.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        button.add(b2);
+
+        p.add(form, BorderLayout.CENTER);
+        p.add(button, BorderLayout.SOUTH);
 
         // ajout listeners 
         b1.addActionListener(this);
@@ -53,21 +83,13 @@ public class AdminPage extends JFrame implements ActionListener{
             String ch2 = new String(t2.getPassword());
             
             // Conditions verif pwd
-            if (ch1.isEmpty() || ch2.isEmpty()) {
+            String pwdError = PwdValid.validpwd(ch2);
+            if (ch1.isEmpty()) {
                 JOptionPane.showMessageDialog(this, "You have to fill all fields", "Error", JOptionPane.ERROR_MESSAGE);
             }
-            else if (ch2.length()<8) {
-                JOptionPane.showMessageDialog(this, "The password must contain at least 8 characters", "Error", JOptionPane.ERROR_MESSAGE);
-            }
-            else if (!ch2.matches(".*[A-Z].*")) {
-                JOptionPane.showMessageDialog(this, "The password must have at least a capital letter", "Error", JOptionPane.ERROR_MESSAGE);
-            }
-            else if (!ch2.matches(".*[0-9].*")) {
-                JOptionPane.showMessageDialog(this, "The password must have at least a number", "Error", JOptionPane.ERROR_MESSAGE);
-            }
-            else if (!ch2.matches(".*[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>\\/?].*")) {
-                JOptionPane.showMessageDialog(this, "The password must have at least a special character", "Error", JOptionPane.ERROR_MESSAGE);
-            }
+            else if (pwdError != null) {
+                JOptionPane.showMessageDialog(this, pwdError, "Error", JOptionPane.ERROR_MESSAGE);
+            } 
             // toutes conditions verifs
             else{
                 JOptionPane.showMessageDialog(this, "Connection successful !", "Success", JOptionPane.INFORMATION_MESSAGE);
@@ -76,7 +98,6 @@ public class AdminPage extends JFrame implements ActionListener{
                 //fermer fenetre actuelle
                 dispose(); 
             }
-
         }
         else if (x.getSource()==b2) {
             // retour a la fenetre admin/user

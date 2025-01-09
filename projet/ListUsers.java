@@ -3,15 +3,19 @@ package projet;
 import java.awt.*;
 import javax.swing.*;
 import java.awt.event.*;
-import java.sql.*;
+import java.util.List;
 
 public class ListUsers extends JFrame implements ActionListener {
     
-    // creation de JcomboBox qui contient la liste des login trouves dans la bd et des labels et un bouton
+    JComboBox<String> FilterOptions; //choisir une option  pour filtrer ou choisir no filter
     JComboBox<String> logins; 
-    JLabel n, s, t, ad, e;
-    JLabel nameLabel, surnameLabel, telLabel, addressLabel, emailLabel;
+    
+    // creation des labels et un bouton
+    JTextArea details;
+    JScrollPane s;
     JButton r= new JButton("Return");
+
+    UserDao userDao = new UserDao();
 
     // constructeur
     public ListUsers(){
@@ -22,71 +26,65 @@ public class ListUsers extends JFrame implements ActionListener {
         setLocationRelativeTo(null); // Centrer la fenêtre
 
         // init des composants
+        FilterOptions = new JComboBox<String>(new String[]{"No Filter", "Username", "Rentals"});
         logins = new JComboBox<String>();
-        n= new JLabel("Name: ");
-        s= new JLabel("Surname: ");
-        t= new JLabel("Tel: ");
-        ad= new JLabel("Address: ");
-        e= new JLabel("Email: ");
-        // c= new JLabel("Cars: ");
-
-        nameLabel = new JLabel();
-        surnameLabel = new JLabel();
-        telLabel = new JLabel();
-        addressLabel = new JLabel();
-        emailLabel = new JLabel();
-        // carsLabel = new JLabel();
-
-        // charger logins a partir de la bd
-        loadLogins();
+        details = new JTextArea(15, 40);
+        details.setEditable(false);
+        s = new JScrollPane(details);
 
         JPanel panel= new JPanel();
-        panel.setLayout(new GridLayout(7,2,10,10));
+        panel.setLayout(new GridLayout(3,2,10,10));
 
+        panel.add(new JLabel("Filter by: "));
+        panel.add(FilterOptions);
         panel.add(new JLabel("Login: "));
         panel.add(logins);
-        panel.add(n);
-        panel.add(nameLabel);
-        panel.add(s);
-        panel.add(surnameLabel);
-        panel.add(t);
-        panel.add(telLabel);
-        panel.add(ad);
-        panel.add(addressLabel);
-        panel.add(e);
-        panel.add(emailLabel);
-        // panel.add(c);
-        // panel.add(carsLabel);
+        panel.add(new JLabel());
         panel.add(r);
 
+        JPanel mainP= new JPanel();
+        mainP.setLayout(new BorderLayout());
+        mainP.add(panel, BorderLayout.NORTH);
+        mainP.add(s, BorderLayout.CENTER);
+
         // ajout listeners
-        logins.addActionListener(this);
+        FilterOptions.addActionListener(this);
         r.addActionListener(this);
 
-        setContentPane(panel);
-    }
+        setContentPane(mainP);
 
-    // charger logins a partir de la bd
-    public void loadLogins(){
-        try (Connection conn = DatabaseConnection.connect();
-             Statement st = conn.createStatement();
-             ResultSet rs = st.executeQuery("select login from users")) 
-        {
-            while (rs.next()) {
-                logins.addItem(rs.getString("login"));
-            }
-        } catch (Exception ex) {
-            ex.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Error when charging", "Error", JOptionPane.ERROR_MESSAGE);
-        }
+        loadUserDetails("No Filter", null);
     }
 
     // lorsque les boutons sont cliques
     public void actionPerformed (ActionEvent x){
-        if (x.getSource()==logins) {
+        if (x.getSource()==FilterOptions) {
+            // recuperer le filter selectionne
+            String Selectedfilter= (String)FilterOptions.getSelectedItem();
+            if ("Username".equals(Selectedfilter)) {
+                // voir login dropdown
+                logins.setVisible(true);
+                // charger les logins
+                loadLogins();
+            } 
+            else {
+                // hide login dropdown
+                logins.setVisible(false);
+                if ("No Filter".equals(Selectedfilter)) {
+                    loadUserDetails("No Filter", null);
+                } 
+                else if ("Rentals".equals(Selectedfilter)) {
+                    loadUserDetails("Rentals", null);
+                } 
+            }
+        }
+        else if (x.getSource()==logins) {
             // recuperer le login selectionne
-            String Selectedlogin = (String)logins.getSelectedItem();
-            loadUserDetails(Selectedlogin);
+            String Selectedlogin= (String)logins.getSelectedItem();
+            if (Selectedlogin!=null) {
+                // charger les details de l utilisateur
+                loadUserDetails("Username", Selectedlogin); 
+            }
         }
         else if (x.getSource()==r) {
             // fermer la fenetre
@@ -96,27 +94,53 @@ public class ListUsers extends JFrame implements ActionListener {
         }
     }
 
-    // charger les details de l utilisateur a partie de la bd 
-    public void loadUserDetails(String login){
-        try (Connection conn = DatabaseConnection.connect();
-             PreparedStatement pst = conn.prepareStatement("select * from users where login=?"))
-        {
-            pst.setString(1, login);
-            ResultSet rs = pst.executeQuery();
-            if (rs.next()) {
-                nameLabel.setText(rs.getString("name"));
-                surnameLabel.setText(rs.getString("surname"));
-                telLabel.setText(rs.getString("tel"));
-                addressLabel.setText(rs.getString("address"));
-                emailLabel.setText(rs.getString("email"));
-                // carsLabel.setText(rs.getString("cars"));
-            }  
-        }catch (Exception ex) {
-            ex.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Error when charging", "Error", JOptionPane.ERROR_MESSAGE);
+     // charger logins a partir de la bd
+     public void loadLogins(){
+        logins.removeAllItems();
+        List<String> usernames = userDao.loadLogins();
+        for (String username : usernames) {
+            logins.addItem(username);
         }
     }
 
+    // charger les details de l utilisateur a partie de la bd 
+    public void loadUserDetails(String choix, String valeur){
+        
+        List<User> users;
+        if ("Username".equals(choix)) {
+            User user = userDao.loadUserByLogin(valeur);
+            users = user != null ? List.of(user) : List.of();
+        } 
+        else if ("No Filter".equals(choix)) {
+            users = userDao.loadAllUsers();
+        } 
+        else if("Rented".equals(choix)) {
+            users = userDao.loadRenters();
+        }
+        else {
+            users =List.of();
+        }
+        displayUserDetails(users);
+    }
+
+    // charger les details des utilisateurs
+    public void displayUserDetails(List<User> users){
+        details.setText("");
+        if (users.isEmpty()) {
+            details.setText("No users found");
+            return;
+        }
+    
+        for (User user : users) {
+            details.append("Username: " + user.getUsername() + "\n");
+            details.append("Name: " + user.getName() + "\n");
+            details.append("Surname: " + user.getSurname() + "\n");
+            details.append("Phone: " + user.getTel() + "\n");
+            details.append("Email: " + user.getEmail() + "\n");
+            details.append("Address: " + user.getAddress() + "\n");
+        }
+    }
+            
     // main
     public static void main(String[] args) {
         ListUsers lu = new ListUsers();

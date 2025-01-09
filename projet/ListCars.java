@@ -3,15 +3,20 @@ package projet;
 import java.awt.*;
 import javax.swing.*;
 import java.awt.event.*;
-import java.sql.*;
+import java.util.List;
 
 public class ListCars extends JFrame implements ActionListener{
     
-    // creation de JcomboBox qui contient la liste des marques trouves dans la bd et des labels et un bouton
-    JComboBox<String> brands; 
-    JLabel m, c, p, a;
-    JLabel modelLabel, colorLabel, priceLabel, availabilityLabel;
+    JComboBox<String> FilterOptions; //choisir une option  pour filtrer ou choisir no filter
+    JComboBox<String> FilterValues; //choisir une valeur pour filtrer
+    
+    // creation des labels et un bouton
+    JLabel userlabel;
     JButton r= new JButton("Return");
+    JTextArea details;
+    JScrollPane s;
+
+    CarDao carDao = new CarDao();
     
     // constructeur
     public ListCars(){
@@ -22,90 +27,131 @@ public class ListCars extends JFrame implements ActionListener{
         setLocationRelativeTo(null); // Centrer la fenêtre
 
         // init des composants
-        brands = new JComboBox<String>();
-        m= new JLabel("Model: ");
-        c= new JLabel("Color: ");
-        p= new JLabel("Price: ");
-        a= new JLabel("Availability: ");
+        FilterOptions = new JComboBox<String>(new String[]{"No Filter", "Brand", "Model", "Color", "Price", "Availability"});
+        FilterValues = new JComboBox<String>();
 
-        modelLabel = new JLabel();
-        colorLabel = new JLabel();
-        priceLabel = new JLabel();
-        availabilityLabel = new JLabel();
-
-
-        // charger brands a partir de la bd
-        loadBrands();
+        details = new JTextArea(15, 40);
+        details.setEditable(false);
+        s = new JScrollPane(details);
+        userlabel = new JLabel();
 
         JPanel panel= new JPanel();
-        panel.setLayout(new GridLayout(7,2,10,10));
+        panel.setLayout(new GridLayout(10,2,10,10));
 
-        panel.add(new JLabel("Brand: "));
-        panel.add(brands);
-        panel.add(m);
-        panel.add(modelLabel);
-        panel.add(c);
-        panel.add(colorLabel);
-        panel.add(p);
-        panel.add(priceLabel);
-        panel.add(a);
-        panel.add(availabilityLabel);
+        panel.add(new JLabel("Filter by: "));
+        panel.add(FilterOptions);
+        panel.add(new JLabel("Filter Value: "));
+        panel.add(FilterValues);
+        panel.add(new JLabel("Rented by: "));
+        panel.add(userlabel);
         panel.add(r);
 
+        JPanel mainP= new JPanel();
+        mainP.setLayout(new BorderLayout());
+        mainP.add(panel, BorderLayout.NORTH);
+        mainP.add(s, BorderLayout.CENTER);
+
         // ajout listeners
-        brands.addActionListener(this);
+        FilterOptions.addActionListener(this);
+        FilterValues.addActionListener(this);
         r.addActionListener(this);
 
-        setContentPane(panel);   
+        setContentPane(mainP);   
+
+        loadFilterOptions();
     }
 
-    // charger les marques a partir de la bd
-    private void loadBrands(){
-        try (Connection conn = DatabaseConnection.connect();
-             Statement st = conn.createStatement();
-             ResultSet rs = st.executeQuery("select distinct brand from cars"))
-        {  
-            while (rs.next()) {
-                brands.addItem(rs.getString("brand"));
+    // charger les options de filtrage
+    private void loadFilterOptions(){
+        FilterOptions.setSelectedIndex(0); // No Filter default
+        FilterValues.setEnabled(false); // desactiver le choix des valeurs
+        loadAllCars(); // charger toutes les voitures
+    }
+
+    // charger les valeurs a partir de filtre choisi
+    private void loadFilterValues(String choix){
+        
+        FilterValues.removeAllItems();
+        FilterValues.setEnabled(true);
+
+        List<String> vlist = null;
+
+        switch (choix) {
+            case "Brand":
+                vlist = carDao.loadBrands();
+                break;
+            case "Model":
+                vlist = carDao.loadModels();
+                break;
+            case "Color":
+                vlist = carDao.loadColors();
+                break;
+            case "Price":
+                vlist = carDao.loadPrices();
+                break;
+            case "Availability":
+                vlist = carDao.loadAvailabilities();
+                break;
+        }
+
+        // ajouter les valeurs a la liste
+        if (vlist != null){
+            for (String v : vlist) {
+                FilterValues.addItem(v);
             }
-        } catch (Exception ex) {
-            ex.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Error when charging", "Error", JOptionPane.ERROR_MESSAGE);
+        } 
+    }
+
+    // charger les details d'une voiture a partir du filtre et de la valeur
+    private void loadCarDetailsbyFilter(String choix, String valeur){
+        List<Car> cars = carDao.loadCarsByFilter(choix, valeur);
+        displayCarDetails(cars);
+    }
+
+    // charger toutes les voitures
+    private void loadAllCars(){
+        List<Car> cars = carDao.loadAllCars();
+        displayCarDetails(cars);
+    }
+
+    // charger les details d'une voiture a partir de la bd
+    private void displayCarDetails(List<Car> cars){
+
+        details.setText("");
+
+        if (cars.isEmpty()) {
+            details.setText("No cars found");
+            return;
+        }
+        // charger les details des car
+         for (Car car : cars) {
+            details.append("Brand: " + car.getBrand() + "\n");
+            details.append("Model: " + car.getModel() + "\n");
+            details.append("Color: " + car.getColor() + "\n");
+            details.append("Price: " + car.getPrice() + "\n");
+            details.append("Availability: " + car.getAvailability() + "\n");
+            details.append("Rented by: " + car.getUsername() + "\n\n");
         }
     }
-
     // lorsque les boutons sont cliques
     public void actionPerformed (ActionEvent e){
-        if (e.getSource()==brands) {
-            // recuperer la marque selectionnee
-            String Selectedbrand = (String)brands.getSelectedItem();
-            loadCarDetails(Selectedbrand);
-            }
+        if (e.getSource()==FilterOptions) {
+            // recuperer l option selectionnee
+            String Selectedfilter= (String)FilterOptions.getSelectedItem();
+            loadFilterValues(Selectedfilter);
+        }
+        else if (e.getSource()==FilterValues) {
+            // recuperer l option selectionnee
+            String Selectedfilter= (String)FilterOptions.getSelectedItem();
+            // recuperer la valeur selectionnee
+            String SelectedValue= (String)FilterValues.getSelectedItem();
+            loadCarDetailsbyFilter(Selectedfilter, SelectedValue);
+        }
         else if (e.getSource()==r) {
             // fermer la fenetre
             this.dispose();
             // retour a la fenetre ContentPage
             new ContentPage().setVisible(true);
-        }
-    }
-    
-    // charger les details des voitures a partir de la bd 
-    private void loadCarDetails(String brand){
-        try (Connection conn = DatabaseConnection.connect();
-             PreparedStatement pst = conn.prepareStatement("select * from cars where brand= ?"))
-        {
-            pst.setString(1, brand);
-            ResultSet rs = pst.executeQuery();
-            
-            if (rs.next()) {
-                modelLabel.setText(rs.getString("model"));
-                colorLabel.setText(rs.getString("color"));
-                priceLabel.setText(String.valueOf(rs.getDouble("price")));
-                availabilityLabel.setText(rs.getBoolean("availability") ? "For rent" : "Not available");   
-            }
-        } catch (Exception ex) {
-           ex.printStackTrace();
-           JOptionPane.showMessageDialog(this, "Error when charging", "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
         

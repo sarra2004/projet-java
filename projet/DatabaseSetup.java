@@ -17,14 +17,13 @@ public class DatabaseSetup {
         String createUsers = """
                             create table if not exists users ( 
                             id integer primary key autoincrement ,
-                            login text unique not null,
+                            username text unique not null,
                             password text not null,
                             name text not null,
                             surname text not null,
                             tel text not null,
                             address text ,
-                            email text unique not null,
-                            cars text 
+                            email text unique not null
                             );
                             """;
                                     
@@ -35,8 +34,19 @@ public class DatabaseSetup {
                             brand text not null,
                             model text not null,
                             color text not null,
-                            price real not null,
-                            availability boolean default 1
+                            price real not null check (price > 0),
+                            availability text check(availability in ('available', 'lent')) default 'available' 
+                            );
+                            """;
+        
+        // creation table bookings
+        String createBookings = """
+                            create table if not exists bookings (
+                            id integer primary key autoincrement ,
+                            car_id integer not null,
+                            user_id integer not null,
+                            foreign key (car_id) references cars(id),
+                            foreign key (user_id) references users(id)
                             );
                             """;
                                     
@@ -49,11 +59,14 @@ public class DatabaseSetup {
                 System.out.println("Users table created with success");
                 st.execute(createCars);
                 System.out.println("Cars table created with success");
+                st.execute(createBookings);
+                System.out.println("Bookings table created with success");
 
                 // init des donnees pour cars
                 insertCars(st);
 
         } catch (Exception e) {
+            e.printStackTrace();
             System.err.println("error:"+ e.getMessage());
         } 
     }
@@ -74,10 +87,10 @@ public class DatabaseSetup {
             String brand = brands[r.nextInt(brands.length)];
             String model =models[r.nextInt(models.length)];
             String color = colors[r.nextInt(colors.length)];
-            double price = 15000 + r.nextInt(50000);
-            int availability = 1;
+            double price = 15000 +  r.nextDouble() * 50000;
+            String availability = "available";
 
-            ch.append(String.format("('%s', '%s', '%s', %.2f, %d)", brand, model, color, price, availability));
+            ch.append(String.format("('%s', '%s', '%s', '%.2f', '%s')", brand, model, color, price, availability));
             if (i<49) {
                 ch.append(", ");
             }
